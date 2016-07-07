@@ -104,8 +104,9 @@ class Client(object):
     """
     def __init__(self, streams, event_callback, error_callback=None,
                  connection_close_callback=None,
+# PCB: validate_Cert
                  source_start_callback=None, source_finish_callback=None,
-                 label=None, retrieve_missing_events=False,
+                 label=None, validate_cert=False , retrieve_missing_events=False,
                  ioloop=None, parse_event_body=True, separate_events=True,
                  disable_compression=False):
         """Creates a new client for one or more stream URLs.
@@ -806,8 +807,14 @@ def read_cmd_options():
     tornado.options.define('deflate', default=True,
                            help='Accept compressed data with deflate',
                            type=bool)
+# PCB : Define validate_cert parameter
+    tornado.options.define('validate_cert', default=False,
+                           help='Validate the HTTPS certificate',
+                           type=bool)
+
     remaining = tornado.options.parse_command_line()
     options = Values()
+
     if len(remaining) >= 1:
         options.stream_urls = remaining
     else:
@@ -832,12 +839,14 @@ def main():
     disable_compression = not tornado.options.options.deflate
     retrieve_missing_events = tornado.options.options.missing
     client_label = tornado.options.options.label
+# PCB : Define validate_cert parameter
+    validate_cert = tornado.options.options.validate_cert
     client = Client(options.stream_urls,
                     event_callback=handle_event,
 #                    event_callback=filter.filter_event,
                     error_callback=handle_error,
                     disable_compression=disable_compression,
-                    label=client_label,
+                    label=client_label, validate_cert=validate_cert,
                     retrieve_missing_events=retrieve_missing_events)
 #    import time
 #    tornado.ioloop.IOLoop.instance().add_timeout(time.time() + 6, stop_client)
