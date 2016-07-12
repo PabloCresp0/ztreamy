@@ -378,7 +378,7 @@ class AsyncStreamingClient(object):
         else:
             headers = {'Accept-Encoding': 'identity'}
         req = HTTPRequest(url, streaming_callback=self._stream_callback,
-                          headers=headers, request_timeout=0, 
+                          headers=headers, request_timeout=0,
                           connect_timeout=0, validate_cert=self.validate_cert)
         http_client.fetch(req, self._request_callback)
         self.reconnection.notify_failure()

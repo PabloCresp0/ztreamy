@@ -103,7 +103,7 @@ class StreamServer(tornado.web.Application):
 
         """
         super(StreamServer, self).__init__(**kwargs)
-	if certfile == None or keyfile == None
+	if certfile is None or keyfile is None
             logging.info('Certfile and Keyfile are required for HTTPS \
                           connection.\nInitializing HTTP server...')
             self.http_server = tornado.httpserver.HTTPServer(self,
