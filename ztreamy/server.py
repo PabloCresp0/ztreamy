@@ -77,16 +77,20 @@ class StreamServer(tornado.web.Application):
     server.start()
 
     """
-    def __init__(self, port, https=False, ioloop=None, stop_when_source_finishes=False,
-                 **kwargs):
+    def __init__(self, port, certfile= None, keyfile=None, ioloop=None, 
+                 stop_when_source_finishes=False,**kwargs):
         """Creates a new server.
 
         'port' specifies the port number in which the HTTP server will
         listen.
 
- # PCB: anadimos el uso de HTTPS configurable
-        'https' set to True provides bidirectional encryption of 
-         communications between the client and server.
+        'certfile'  is the certificate to provide bidirectional encryption of 
+         communications between the client and server through HTTPS protocol.
+         To use HTTP connections, its value by default is None.
+
+        'keyfile'  is the private key to provide bidirectional encryption of 
+         communications between the client and server through HTTPS protocol.
+         To use HTTP connections, its value by default is None.
 
         'stop_when_source_finishes' set to True makes the server
         finish after the event source declares it has finished. Used
@@ -100,31 +104,30 @@ class StreamServer(tornado.web.Application):
         """
         super(StreamServer, self).__init__(**kwargs)
 
-	if https == False:
+	if certfile == None or keyfile == None:
 	   
-            logging.info('PCB: Initializing HTTP server...')
+            logging.info('Certfile and Keyfile are required for HTTPS \
+                          connection.\nInitializing HTTP server...')
             self.http_server = tornado.httpserver.HTTPServer(self,
                                                 decompress_request=True)
 
-	else:
+        else:
 
-            logging.info('PCB: Initializing HTTPS server...')
+            logging.info('Initializing HTTPS server...')
 
-# PCB: Certificados autofirmados
             ssl_options = {
-                'certfile': '/home/pablo/ztreamy/ztreamy/keys/server.crt',
-                'keyfile': '/home/pablo/ztreamy/ztreamy/keys/server.key',
+                'certfile': certfile,
+                'keyfile': keyfile,
             }
 
-# PCB: Se anade ssl_options con los certificados autofirmados.
             self.http_server = tornado.httpserver.HTTPServer(self,
                                                 ssl_options=ssl_options,
                                                 decompress_request=True)
 
         self.streams = []
         self.port = port
-# PCB: Introducimos el boolean https
-        self.https = https
+        self.certfile = certfile
+        self.keyfile = keyfile
         self.ioloop = ioloop or tornado.ioloop.IOLoop.instance()
         self.stop_when_source_finishes = stop_when_source_finishes
         self._looping = False
@@ -147,7 +150,7 @@ class StreamServer(tornado.web.Application):
     def start(self, loop=True):
         """Starts the server.
 
-        The server begins to listen to HTTP requests.
+        The server begins to listen to HTTP or HTTPS requests.
 
         If 'loop' is true (which is the default), the server will
         block on the ioloop until 'close()' is called.
@@ -1304,31 +1307,7 @@ class _ShortLivedHandler(GenericHandler):
         # The parameter is kept for compatibility
         if not self.request.connection.stream.closed():
             self.write(data)
-"""
-# PCB: anadimos la autenticacion de los clientes (pagina 98 libro Tornado)
-class BaseHandler(tornado.web.RequestHandler):
-    def get_current_user(self):
-        return self.get_secure_cookie("username")
 
-class LoginHandler(BaseHandler):
-    def get(self):
-        self.render('login.html')
-    def post(self):
-        self.set_secure_cookie("username", self.get_argument("username"))
-        self.redirect("/")
-
-class WelcomeHandler(BaseHandler):
-    @tornado.web.authenticated
-    def get(self):
-        self.render('index.html', user=self.current_user)
-
-class LogoutHandler(BaseHandler):
-    def get(self):
-        if (self.get_argument("logout", None)):
-        self.clear_cookie("username")
-        self.redirect("/")
-"""
-###
 def main():
     import time
     import tornado.options
@@ -1346,21 +1325,21 @@ def main():
     tornado.options.define('autostop', default=False,
                            help='stop the server when the source finishes',
                            type=bool)
-# PCB: anadimos el uso de HTTPS configurable
-    tornado.options.define('https', default=False,
-                           help='provides https connection',
-                           type=bool)
+    tornado.options.define('certfile', default=None,
+                           help='certfile for HTTPS connections')
+    tornado.options.define('keyfile', default=None,
+                           help='keyfile for HTTPS connections')
 
     tornado.options.parse_command_line()
     port = tornado.options.options.port
-# PCB: anadimos el uso de HTTPS configurable
-    https = tornado.options.options.https
+    certfile = tornado.options.options.certfile
+    keyfile = tornado.options.options.keyfile
     if (tornado.options.options.buffer is not None
         and tornado.options.options.buffer > 0):
         buffering_time = tornado.options.options.buffer * 1000
     else:
         buffering_time = None
-    server = StreamServer(port,https,
+    server = StreamServer(port,certfile, keyfile,
                  stop_when_source_finishes=tornado.options.options.autostop)
     stream = Stream('/events', allow_publish=True,
                     buffering_time=buffering_time)
