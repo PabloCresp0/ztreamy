@@ -105,7 +105,7 @@ class Client(object):
     def __init__(self, streams, event_callback, validate_cert=True,
                  error_callback=None, connection_close_callback=None,
                  source_start_callback=None, source_finish_callback=None,
-                 label=None , retrieve_missing_events=False,
+                 label=None, retrieve_missing_events=False,
                  ioloop=None, parse_event_body=True, separate_events=True,
                  disable_compression=False):
         """Creates a new client for one or more stream URLs.
@@ -269,7 +269,7 @@ class AsyncStreamingClient(object):
     'Client' instead.
 
     """
-    def __init__(self, url, validate_cert=True, event_callback=None, 
+    def __init__(self, url, validate_cert=True, event_callback=None,
                  error_callback=None, connection_close_callback=None,
                  source_start_callback=None, source_finish_callback=None,
                  label=None, retrieve_missing_events=False,
@@ -305,7 +305,7 @@ class AsyncStreamingClient(object):
         if isinstance(event_callback, Filter):
             event_callback = event_callback.filter_event
         self.url = url
-	self.validate_cert = validate_cert
+        self.validate_cert = validate_cert
         self.event_callback = event_callback
         self.error_callback = error_callback
         self.connection_close_callback = connection_close_callback
@@ -501,7 +501,7 @@ class SynchronousClient(object):
     This client should be used in long-polling mode.
 
     """
-    def __init__(self, server_url, validate_cert=True, 
+    def __init__(self, server_url, validate_cert=True,
                  parse_event_body=True, last_event_seen=None):
         self.server_url = server_url
         self.validate_cert = validate_cert
@@ -634,7 +634,7 @@ class SynchronousEventPublisher(object):
                 self.path = self.path + 'publish'
             else:
                 self.path = self.path + '/publish'
-        self. validate_cert=validate_cert
+        self.validate_cert=validate_cert
         self.serialization_type = serialization_type
         self.headers = dict(SynchronousEventPublisher._headers)
         if serialization_type == ztreamy.SERIALIZATION_JSON:
@@ -815,10 +815,8 @@ def read_cmd_options():
     tornado.options.define('validate_cert', default=True,
                            help='Validate the HTTPS certificate',
                            type=bool)
-
     remaining = tornado.options.parse_command_line()
     options = Values()
-
     if len(remaining) >= 1:
         options.stream_urls = remaining
     else:
@@ -849,7 +847,7 @@ def main():
 #                    event_callback=filter.filter_event,
                     error_callback=handle_error,
                     disable_compression=disable_compression,
-                    label=client_label, 
+                    label=client_label,
                     retrieve_missing_events=retrieve_missing_events)
 #    import time
 #    tornado.ioloop.IOLoop.instance().add_timeout(time.time() + 6, stop_client)

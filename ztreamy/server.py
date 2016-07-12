@@ -77,8 +77,8 @@ class StreamServer(tornado.web.Application):
     server.start()
 
     """
-    def __init__(self, port, certfile= None, keyfile=None, ioloop=None, 
-                 stop_when_source_finishes=False,**kwargs):
+    def __init__(self, port, certfile= None, keyfile=None, ioloop=None,
+                 stop_when_source_finishes=False, **kwargs):
         """Creates a new server.
 
         'port' specifies the port number in which the HTTP server will
@@ -103,27 +103,20 @@ class StreamServer(tornado.web.Application):
 
         """
         super(StreamServer, self).__init__(**kwargs)
-
-	if certfile == None or keyfile == None:
-	   
+	if certfile == None or keyfile == None
             logging.info('Certfile and Keyfile are required for HTTPS \
                           connection.\nInitializing HTTP server...')
             self.http_server = tornado.httpserver.HTTPServer(self,
                                                 decompress_request=True)
-
         else:
-
             logging.info('Initializing HTTPS server...')
-
             ssl_options = {
                 'certfile': certfile,
                 'keyfile': keyfile,
             }
-
             self.http_server = tornado.httpserver.HTTPServer(self,
                                                 ssl_options=ssl_options,
                                                 decompress_request=True)
-
         self.streams = []
         self.port = port
         self.certfile = certfile
@@ -1329,7 +1322,6 @@ def main():
                            help='certfile for HTTPS connections')
     tornado.options.define('keyfile', default=None,
                            help='keyfile for HTTPS connections')
-
     tornado.options.parse_command_line()
     port = tornado.options.options.port
     certfile = tornado.options.options.certfile
@@ -1339,7 +1331,7 @@ def main():
         buffering_time = tornado.options.options.buffer * 1000
     else:
         buffering_time = None
-    server = StreamServer(port,certfile, keyfile,
+    server = StreamServer(port, certfile, keyfile,
                  stop_when_source_finishes=tornado.options.options.autostop)
     stream = Stream('/events', allow_publish=True,
                     buffering_time=buffering_time)
