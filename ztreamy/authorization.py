@@ -1,5 +1,5 @@
 # ztreamy: a framework for publishing semantic events on the Web
-# Copyright (C) 2011-2015 Jesus Arias Fisteus
+# Copyright (C) 2016 Pablo Crespo Bellido
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,53 +15,38 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 #
-""" Implementation of streams and an asynchronous HTTP server for them.
+""" Implementation of authorization based on IP whitelisting.
 
-Two kinds of streams are provided: 'Stream' and 'RelayStream'.
+The IPy module is used to manage IP addresses. 
 
-'Stream' is a basic stream of events. It can transmit events received
-from remote sources or generated at the process of the server.
-
-'RelayStream' extends the basic stream with functionality to listen to
-other streams and retransmitting their events. Events from remote
-sources or generated at the process of the server can also be
-published in this type of stream.
-
-The server is asynchronous. Be careful when doing blocking calls from
-callbacks (for example, sources of events and filters), because the
-server will be blocked.
+The methods implemented in this module are  used in the 
+module server.py to allow a client publish and/or subscribe 
+streams.
 
 """
 
-from IPy import IP
+from IPy import IP, IPSet
 
 class IPAuthorizationManager(object):
     def __init__(self, whitelist=None):
-        self.whitelist = []
+        self.whitelist = IPSet()
         if whitelist is not None:
             self.load_from_list(whitelist)
 
     def load_from_list(self, whitelist):
         for ip_exp in whitelist:
-            self.whitelist.append(IP(ip_exp))
+            self.whitelist.add(IP(ip_exp))
 
     def load_from_file(self, filename):
         with open(filename) as f:
             for line in f:
-                self.whitelist.append(IP(line.strip()))
+                self.whitelist.add(IP(line.strip()))
 
     def authorize_ip(self, ip):
-        if len(self.whitelist) == 0:
+        ip_aux = IPSet([IP(ip)])
+        if ip_aux.isdisjoint(self.whitelist)==True:
             return False
-        else:
-            ip_aux = IP(ip)
-            if (ip_aux in self.whitelist) == True:
-                return True
-            for i in self.whitelist:
-                for x in i:
-                    if ip == str(x):
-                        return True
-        return False
+        return True
 
     def authorize(self, request):
         return self.authorize_ip(request.remote_ip)

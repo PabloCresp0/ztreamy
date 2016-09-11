@@ -56,7 +56,6 @@ from . import events_buffer
 from .utils import parsing
 from . import stats
 from . import authorization
-from IPy import IP
 
 
 # Uncomment to do memory profiling
@@ -1210,6 +1209,7 @@ class ContinuousPublishHandler(GenericHandler):
         call to `data_received`.
 
         """
+        self.authorize_publish(self.stream)
         if self.request.method != 'POST':
             raise tornado.web.HTTPError(405, 'Method not allowed')
         try:
@@ -1233,7 +1233,6 @@ class ContinuousPublishHandler(GenericHandler):
         self.stream.dispatch_events(evs)
 
     def post(self):
-        self.authorize_publish(self.stream)
         """ Called when the request gets finished."""
         if self.deserializer.data_is_pending():
             raise tornado.web.HTTPError(400, 'Bad request')
@@ -1310,6 +1309,7 @@ class _ShortLivedHandler(GenericHandler):
 
     @tornado.web.asynchronous
     def get(self):
+        self.authorize_subscribe(self.stream)
         last_event_seen, past_events_limit, non_blocking = \
             self._last_seen_parameters()
         if ('Accept' in self.request.headers
@@ -1364,9 +1364,9 @@ def main():
     tornado.options.define('keyfile', default=None,
                            help='keyfile for HTTPS connections')
     tornado.options.define('whitelist_sub', default=None,
-                           help='whitelist of IP to subscribe')
+                           help='IP whitelist to subscribe')
     tornado.options.define('whitelist_pub', default=None,
-                           help='whitelist of IP to publish')
+                           help='IP whitelist to publish')
 
     tornado.options.parse_command_line()
     port = tornado.options.options.port
@@ -1391,8 +1391,8 @@ def main():
         whitelist2.load_from_file(whitelist_pub)
     else:
         whitelist2 = None
-    stream = Stream('/events', auth_manager_sub = whitelist1, \
-             auth_manager_pub = whitelist2,allow_publish=True, 
+    stream = Stream('/events', auth_manager_sub=whitelist1,
+             auth_manager_pub=whitelist2, allow_publish=True,
              buffering_time=buffering_time)
     ## relay = RelayStream('/relay', [('http://localhost:' + str(port)
     ##                                + '/stream/priority')],
