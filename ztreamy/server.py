@@ -117,6 +117,7 @@ class StreamServer(tornado.web.Application):
             self.http_server = tornado.httpserver.HTTPServer(self,
                                                 ssl_options=ssl_options,
                                                 decompress_request=True)
+
         self.streams = []
         self.port = port
         self.certfile = certfile
@@ -468,14 +469,14 @@ class Stream(object):
         if self.auth_manager_sub is not None:
             authorized = self.auth_manager_sub.authorize(request)
         else:
-            authorized = True
+            authorized = [True, 0]
         return authorized
 
     def check_authorization_publish(self, request):
         if self.auth_manager_pub is not None:
             authorized = self.auth_manager_pub.authorize(request)
         else:
-            authorized = True
+            authorized = [True, 0]
         return authorized
 
 
@@ -826,12 +827,36 @@ class GenericHandler(tornado.web.RequestHandler):
         return self.application.ioloop
 
     def authorize_subscribe(self, stream):
-        if not stream.check_authorization_subscribe(self.request):
-            raise tornado.web.HTTPError(403, 'Forbidden')
+        realm = 'ztreamy'
+        if not (stream.check_authorization_subscribe(self.request))[0]:
+            if (stream.check_authorization_subscribe(self.request))[1] == 1:
+                self.set_status(401)
+                self.set_header('WWW-Authenticate', 'Basic realm="%s"' % realm)
+            elif (stream.check_authorization_subscribe(self.request))[1] == 2:
+                opaque = 'asdf'
+                nonce = "1234"
+                self.set_status(401)
+                self.set_header('WWW-Authenticate',
+                            'Digest realm="%s", nonce="%s", opaque="%s"' %
+                            (realm, nonce, opaque))
+            else:
+                raise tornado.web.HTTPError(403, 'Forbidden')
 
     def authorize_publish(self, stream):
-        if not stream.check_authorization_publish(self.request):
-            raise tornado.web.HTTPError(403, 'Forbidden')
+        realm = 'ztreamy'
+        if not (stream.check_authorization_publish(self.request))[0]:
+            if (stream.check_authorization_publish(self.request))[1] == 1:
+                self.set_status(401)
+                self.set_header('WWW-Authenticate', 'Basic realm="%s"' % realm)
+            elif (stream.check_authorization_publish(self.request))[1] == 2:
+                opaque = 'asdf'
+                nonce = "1234"
+                self.set_status(401)
+                self.set_header('WWW-Authenticate',
+                            'Digest realm="%s", nonce="%s", opaque="%s"' %
+                            (realm, nonce, opaque))
+            else:
+                raise tornado.web.HTTPError(403, 'Forbidden')
 
     def req_content_type(self):
         return parsing.get_content_type(self.request.headers['Content-Type'])
@@ -1249,6 +1274,7 @@ class _EventStreamHandler(GenericHandler):
 
     @tornado.web.asynchronous
     def get(self):
+
         self.authorize_subscribe(self.stream)
         # non_blocking will be ignored and False used always!
         last_event_seen, past_events_limit, non_blocking = \
@@ -1305,7 +1331,7 @@ class _ShortLivedHandler(GenericHandler):
     def __init__(self, application, request, dispatcher=None, stream=None):
         super(_ShortLivedHandler, self).__init__(application, request)
         self.dispatcher = dispatcher
-        # the 'stream' argument is ignored (not necessary)
+        self.stream = stream
 
     @tornado.web.asynchronous
     def get(self):
@@ -1367,6 +1393,13 @@ def main():
                            help='IP whitelist to subscribe')
     tornado.options.define('whitelist_pub', default=None,
                            help='IP whitelist to publish')
+    tornado.options.define('userpass_sub', default=None,
+                           help='Users and passwords to subscribe')
+    tornado.options.define('userpass_pub', default=None,
+                           help='Users and passwords to publish')
+    tornado.options.define('digest_auth', default=False,
+                           help='Enable Digest Authentication',
+                           type=str)
 
     tornado.options.parse_command_line()
     port = tornado.options.options.port
@@ -1374,6 +1407,10 @@ def main():
     keyfile = tornado.options.options.keyfile
     whitelist_sub = tornado.options.options.whitelist_sub
     whitelist_pub = tornado.options.options.whitelist_pub
+    userpass_sub = tornado.options.options.userpass_sub
+    userpass_pub = tornado.options.options.userpass_pub
+    digest_auth = tornado.options.options.digest_auth
+
     if (tornado.options.options.buffer is not None
         and tornado.options.options.buffer > 0):
         buffering_time = tornado.options.options.buffer * 1000
@@ -1381,19 +1418,47 @@ def main():
         buffering_time = None
     server = StreamServer(port, certfile, keyfile,
                  stop_when_source_finishes=tornado.options.options.autostop)
-    if whitelist_sub is not None:
-        whitelist1 = authorization.IPAuthorizationManager()
-        whitelist1.load_from_file(whitelist_sub)
+    if (((whitelist_sub is not None) and (userpass_pub is not None)) or
+        ((whitelist_sub is not None) and (userpass_sub is not None)) or
+        ((whitelist_pub is not None) and (userpass_sub is not None)) or
+        ((whitelist_pub is not None) and (userpass_pub is not None))):
+        logging.info('Only one authorization method is allowed: \
+                                         Digest or IP Whitelist')
+        auth_manager_sub_aux=None
+        auth_manager_pub_aux=None
     else:
-        whitelist1 = None
-    if whitelist_pub is not None:
-        whitelist2 = authorization.IPAuthorizationManager()
-        whitelist2.load_from_file(whitelist_pub)
-    else:
-        whitelist2 = None
-    stream = Stream('/events', auth_manager_sub=whitelist1,
-             auth_manager_pub=whitelist2, allow_publish=True,
-             buffering_time=buffering_time)
+        auth_manager_sub_aux=None
+        auth_manager_pub_aux=None
+        if whitelist_sub is not None:
+            auth_manager_sub_aux = authorization.IPAuthorizationManager()
+            auth_manager_sub_aux.load_from_file(whitelist_sub)
+            logging.info('IP whitelist authorization to subscribe enabled')
+        if whitelist_pub is not None:
+            auth_manager_pub_aux = authorization.IPAuthorizationManager()
+            auth_manager_pub_aux.load_from_file(whitelist_pub)
+            logging.info('IP whitelist authorization to publish enabled')
+        if userpass_sub is not None:
+            if digest_auth == 'True':
+                auth_manager_sub_aux = authorization.DigestAuthorizationManager()
+                auth_manager_sub_aux.load_from_file(userpass_sub)
+                logging.info('Digest authorization to subscribe enabled')
+            else:
+                auth_manager_sub_aux = authorization.BasicAuthorizationManager()
+                auth_manager_sub_aux.load_from_file(userpass_sub)
+                logging.info('Basic authorization to subscribe enabled')
+        if userpass_pub is not None:
+            if digest_auth == 'True':
+                auth_manager_pub_aux = authorization.DigestAuthorizationManager()
+                auth_manager_pub_aux.load_from_file(userpass_pub)
+                logging.info('Digest authorization to publish enabled')
+            else:
+                auth_manager_pub_aux = authorization.BasicAuthorizationManager()
+                auth_manager_pub_aux.load_from_file(userpass_pub)
+                logging.info('Basic authorization to publish enabled')
+
+    stream = Stream('/events', auth_manager_sub=auth_manager_sub_aux,
+                    auth_manager_pub=auth_manager_pub_aux, allow_publish=True,
+                    buffering_time=buffering_time)
     ## relay = RelayStream('/relay', [('http://localhost:' + str(port)
     ##                                + '/stream/priority')],
     ##                     allow_publish=True,

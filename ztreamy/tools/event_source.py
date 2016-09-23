@@ -53,6 +53,13 @@ def read_cmd_options():
     tornado.options.define('validate_cert', default=True,
                            help='Validate the HTTPS certificate',
                            type=bool)
+    tornado.options.define('auth_username', default='None',
+                           help='Username for authorization',
+                           type=str)
+    tornado.options.define('auth_password', default='None',
+                           help='Password for Authorization',
+                           type=str)
+
     remaining = tornado.options.parse_command_line()
     options = Values()
     if len(remaining) >= 1:
@@ -66,7 +73,10 @@ def main():
     entity_id = ztreamy.random_id()
     limit = tornado.options.options.limit
     validate_cert = tornado.options.options.validate_cert
-    publishers = [client.EventPublisher(url, validate_cert=validate_cert) \
+    auth_username = tornado.options.options.auth_username
+    auth_password = tornado.options.options.auth_password
+    publishers = [client.EventPublisher(url, validate_cert=validate_cert, \
+                 auth_username=auth_username, auth_password=auth_password) \
                   for url in options.server_urls]
     io_loop = tornado.ioloop.IOLoop.instance()
     time_generator = utils.get_scheduler(tornado.options.options.distribution)

@@ -104,6 +104,7 @@ class Client(object):
 
     """
     def __init__(self, streams, event_callback, validate_cert=True,
+                 auth_username=None, auth_password=None,
                  error_callback=None, connection_close_callback=None,
                  source_start_callback=None, source_finish_callback=None,
                  label=None, retrieve_missing_events=False,
@@ -142,6 +143,8 @@ class Client(object):
             if isinstance(stream, basestring):
                 self.clients.append(AsyncStreamingClient(stream,
                          validate_cert=validate_cert,
+                         auth_username=auth_username,
+                         auth_password=auth_password,
                          event_callback=event_callback,
                          error_callback=error_callback,
                          source_start_callback=source_start_callback,
@@ -271,6 +274,7 @@ class AsyncStreamingClient(object):
 
     """
     def __init__(self, url, validate_cert=True, event_callback=None,
+                 auth_username=None, auth_password=None,
                  error_callback=None, connection_close_callback=None,
                  source_start_callback=None, source_finish_callback=None,
                  label=None, retrieve_missing_events=False,
@@ -307,6 +311,8 @@ class AsyncStreamingClient(object):
             event_callback = event_callback.filter_event
         self.url = url
         self.validate_cert = validate_cert
+        self.auth_username = auth_username
+        self.auth_password = auth_password
         self.event_callback = event_callback
         self.error_callback = error_callback
         self.connection_close_callback = connection_close_callback
@@ -380,6 +386,8 @@ class AsyncStreamingClient(object):
             headers = {'Accept-Encoding': 'identity'}
         req = HTTPRequest(url, streaming_callback=self._stream_callback,
                           headers=headers, request_timeout=0,
+                          auth_username=self.auth_username,
+                          auth_password=self.auth_password,
                           connect_timeout=0, validate_cert=self.validate_cert)
         http_client.fetch(req, self._request_callback)
         self.reconnection.notify_failure()
@@ -549,6 +557,7 @@ class EventPublisher(object):
     _headers = {'Content-Type': ztreamy.event_media_type}
 
     def __init__(self, server_url, validate_cert=True, io_loop=None,
+                 auth_username=None, auth_password=None,
                  serialization_type=ztreamy.SERIALIZATION_ZTREAMY):
         """Creates a new 'EventPublisher' object.
 
@@ -563,6 +572,8 @@ class EventPublisher(object):
         else:
             self.server_url = server_url + '/publish'
         self.validate_cert = validate_cert
+        self.auth_username = auth_username
+        self.auth_password = auth_password
         self.ioloop = io_loop or tornado.ioloop.IOLoop.instance()
         self.http_client = CurlAsyncHTTPClient(self.ioloop)
         self.serialization_type = serialization_type
@@ -612,6 +623,8 @@ class EventPublisher(object):
     def _send_request(self, body, callback=None):
         req = HTTPRequest(self.server_url, body=body, method='POST',
                           headers=self.headers, request_timeout=0,
+                          auth_username=self.auth_username,
+                          auth_password=self.auth_password,
                           connect_timeout=0, validate_cert=self.validate_cert)
         callback = callback or self._request_callback
         # Enqueue a new callback in the ioloop, to avoid problems
@@ -705,6 +718,7 @@ class ContinuousEventPublisher(object):
 
     """
     def __init__(self, server_url, validate_cert=True, io_loop=None,
+                 auth_username=None, auth_password=None,
                  serialization_type=ztreamy.SERIALIZATION_ZTREAMY,
                  buffering_time=1.0):
         if server_url.endswith('/publish'):
@@ -732,6 +746,8 @@ class ContinuousEventPublisher(object):
         self.running = False
         self.pending_events = []
         self.reconnection = ReconnectionManager()
+        self.auth_username=auth_username
+        self.auth_password=auth_password
         self.validate_cert=validate_cert
 
     @tornado.gen.coroutine
@@ -745,6 +761,8 @@ class ContinuousEventPublisher(object):
                               headers=self.headers,
                               request_timeout=0,
                               connect_timeout=5.0,
+                              auth_username=self.auth_username,
+                              auth_password=self.auth_password,
                               validate_cert=self.validate_cert)
             logging.debug('Continuous HTTP request {}'.format(self.server_url))
             try:
@@ -837,6 +855,13 @@ def read_cmd_options():
     tornado.options.define('validate_cert', default=True,
                            help='Validate the HTTPS certificate',
                            type=bool)
+    tornado.options.define('auth_username', default='None',
+                           help='Username for Authorization',
+                           type=str)
+    tornado.options.define('auth_password', default='None',
+                           help='Password for Authorization',
+                           type=str)
+
     remaining = tornado.options.parse_command_line()
     options = Values()
     if len(remaining) >= 1:
@@ -864,9 +889,13 @@ def main():
     retrieve_missing_events = tornado.options.options.missing
     client_label = tornado.options.options.label
     validate_cert = tornado.options.options.validate_cert
+    auth_username = tornado.options.options.auth_username
+    auth_password = tornado.options.options.auth_password
+
     client = Client(options.stream_urls,
                     event_callback=handle_event, validate_cert=validate_cert,
 #                    event_callback=filter.filter_event,
+                    auth_username=auth_username, auth_password=auth_password,
                     error_callback=handle_error,
                     disable_compression=disable_compression,
                     label=client_label,
